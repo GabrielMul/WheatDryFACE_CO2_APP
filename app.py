@@ -62,10 +62,12 @@ def load_and_process_ring_data(ring_name, historical_paths, recent_path):
 # Load Google Drive links from Streamlit secrets
 drive_links = {}
 for ring in range(1, 7):
-    drive_links[f"Ring_{ring}"] = {
-        "historical": st.secrets[f"drive_links.Ring_{ring}"]["historical"],
-        "recent": st.secrets[f"drive_links.Ring_{ring}"]["recent"]
+    ring_key = f"Ring_{ring}"
+    drive_links[ring_key] = {
+        "historical": st.secrets["drive_links"][ring_key]["historical"],
+        "recent": st.secrets["drive_links"][ring_key]["recent"]
     }
+
 
 # Download and merge data
 all_rings_data = []
