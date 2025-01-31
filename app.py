@@ -4,9 +4,26 @@ import plotly.express as px
 import datetime
 import gdown
 import os
+import sys
+
+# =====================================================
+# 1. PAGE CONFIG MUST BE FIRST STREAMLIT COMMAND
+# =====================================================
+st.set_page_config(page_title="CO₂ Monitoring Dashboard", layout="wide")
+
+# Optional: Display Python & Streamlit version for debugging
+st.write("Python version:", sys.version)
+st.write("Streamlit version:", st.__version__)
 
 # =========================
-# 1. Helper Functions
+# 2. Initialize Session State
+# =========================
+# We'll toggle this to force a rerun instead of using st.experimental_rerun()
+if "force_rerun" not in st.session_state:
+    st.session_state["force_rerun"] = False
+
+# =========================
+# 3. Helper Functions
 # =========================
 def get_co2_type(ring_name):
     """Assign 'aCO2' or 'eCO2' based on ring name."""
@@ -74,7 +91,7 @@ def load_and_process_ring_data(ring_name, historical_paths, recent_path):
     return combined_df
 
 # =========================
-# 2. Caching the Data Load
+# 4. Cache the Data Download
 # =========================
 @st.cache_data
 def download_and_load_all_data(drive_links):
@@ -102,17 +119,20 @@ def download_and_load_all_data(drive_links):
     return df_combined
 
 # =========================
-# 3. Main App
+# 5. Main Application
 # =========================
 def main():
-    st.set_page_config(page_title="CO₂ Monitoring Dashboard", layout="wide")
     st.title("🌍 CO₂ Monitoring Dashboard")
 
     # =============== Sidebar: REFRESH DATA ===============
     st.sidebar.subheader("Data Refresh")
     if st.sidebar.button("Refresh Data"):
+        # Clear cache and toggle a session-state var to force a rerun
         st.cache_data.clear()
-        st.experimental_rerun()  # Force rerun so fresh data loads
+        st.session_state["force_rerun"] = not st.session_state["force_rerun"]
+
+    # Show the toggled state (for debugging)
+    st.write("Force Rerun State:", st.session_state["force_rerun"])
 
     # =============== Load Data from Cache ===============
     drive_links = {}
@@ -127,7 +147,7 @@ def main():
     
     # ============== SIDEBAR FILTERS (for PLOTS) ==============
     st.sidebar.header("Plot Filters")
-    
+
     # Ring selection
     selected_rings = st.sidebar.multiselect(
         "Select Rings:",
@@ -257,5 +277,9 @@ def main():
         st.write("**Note:** Values < 350 for eCO₂ have been excluded from stats.")
         st.dataframe(df_stats, use_container_width=True)
 
-if __name__ == "__main__":
+def run_app():
+    # Single entry point:
     main()
+
+if __name__ == "__main__":
+    run_app()
