@@ -18,7 +18,6 @@ st.write("Streamlit version:", st.__version__)
 # =========================
 # 2. Initialize Session State
 # =========================
-# We'll toggle this to force a rerun instead of using st.experimental_rerun()
 if "force_rerun" not in st.session_state:
     st.session_state["force_rerun"] = False
 
@@ -131,8 +130,7 @@ def main():
         st.cache_data.clear()
         st.session_state["force_rerun"] = not st.session_state["force_rerun"]
 
-    # Show the toggled state (for debugging)
-    st.write("Force Rerun State:", st.session_state["force_rerun"])
+    st.write("Force Rerun State:", st.session_state["force_rerun"])  # Debug info
 
     # =============== Load Data from Cache ===============
     drive_links = {}
@@ -148,27 +146,23 @@ def main():
     # ============== SIDEBAR FILTERS (for PLOTS) ==============
     st.sidebar.header("Plot Filters")
 
-    # Ring selection
     selected_rings = st.sidebar.multiselect(
         "Select Rings:",
         sorted(df['Rings'].unique()),
         default=sorted(df['Rings'].unique())
     )
 
-    # CO₂ type with 3 options
     co2_type_selection = st.sidebar.selectbox(
         "Select CO₂ Type:",
         ["All", "aCO2", "eCO2"],
         index=0
     )
 
-    # Plot Date Range
     plot_date_range = st.sidebar.date_input(
         "Select Plot Date Range:",
         [df['TIMESTAMP'].min().date(), df['TIMESTAMP'].max().date()]
     )
 
-    # Filter data for plots
     df_plot_filtered = df.copy()
     df_plot_filtered = df_plot_filtered[df_plot_filtered['Rings'].isin(selected_rings)]
     if co2_type_selection != "All":
@@ -178,6 +172,14 @@ def main():
         (df_plot_filtered['TIMESTAMP'].dt.date <= plot_date_range[-1])
     ]
 
+    # -------------------------
+    # Constants for dashed lines
+    # -------------------------
+    TARGET = 600
+    TOLERANCE_PERCENT = 0.1  # 10%
+    lower_bound = TARGET * (1 - TOLERANCE_PERCENT)  # 540
+    upper_bound = TARGET * (1 + TOLERANCE_PERCENT)  # 660
+
     # ============== Plot: Raw Data ==============
     fig_raw = px.line(
         df_plot_filtered.sort_values("TIMESTAMP"),
@@ -185,8 +187,30 @@ def main():
         y="CO2_Avg",
         color="Rings",
         title="CO₂ Concentration Over Time (Raw)",
-        labels={"CO2_Avg": "CO₂ Average", "TIMESTAMP": "Time"}
+        labels={"CO2_Avg": "CO₂ Average (ppm)", "TIMESTAMP": "Time"}
     )
+
+    # Lower limit line (black)
+    fig_raw.add_hline(
+        y=lower_bound,
+        line_dash="dash",
+        line_color="black",
+        line_width=1.5,
+        annotation_text=f"Lower 10% limit ({lower_bound:.0f} ppm)",
+        annotation_position="bottom right",
+        opacity=0.7
+    )
+    # Upper limit line (green)
+    fig_raw.add_hline(
+        y=upper_bound,
+        line_dash="dash",
+        line_color="green",
+        line_width=1.5,
+        annotation_text=f"Upper 10% limit ({upper_bound:.0f} ppm)",
+        annotation_position="top right",
+        opacity=0.7
+    )
+
     st.plotly_chart(fig_raw, use_container_width=True)
 
     # ============== Plot: Rolling Average ==============
@@ -207,12 +231,33 @@ def main():
         y="CO2_Avg_MA",
         color="Rings",
         title="Smoothed CO₂ Average (Moving Average)",
-        labels={"CO2_Avg_MA": "CO₂ Moving Avg", "TIMESTAMP": "Time"}
+        labels={"CO2_Avg_MA": "CO₂ Moving Avg (ppm)", "TIMESTAMP": "Time"}
     )
+
+    # Lower limit line (black)
+    fig_ma.add_hline(
+        y=lower_bound,
+        line_dash="dash",
+        line_color="black",
+        line_width=1.5,
+        annotation_text=f"Lower 10% limit ({lower_bound:.0f} ppm)",
+        annotation_position="bottom right",
+        opacity=0.7
+    )
+    # Upper limit line (green)
+    fig_ma.add_hline(
+        y=upper_bound,
+        line_dash="dash",
+        line_color="green",
+        line_width=1.5,
+        annotation_text=f"Upper 10% limit ({upper_bound:.0f} ppm)",
+        annotation_position="top right",
+        opacity=0.7
+    )
+
     st.plotly_chart(fig_ma, use_container_width=True)
 
     # ============== Stats Section (Separate Range) ==============
-    # Choose data source for stats: raw or rolling
     st.sidebar.subheader("Choose Data for Statistics")
     stat_source = st.sidebar.radio(
         "Compute Stats From:",
@@ -232,7 +277,6 @@ def main():
     start_time = st.time_input("Start Time (hh:mm)", datetime.time(0, 0))
     end_time = st.time_input("End Time (hh:mm)", datetime.time(23, 59))
 
-    # Filter data for stats
     df_stats_filtered = df.copy()
     df_stats_filtered = df_stats_filtered[df_stats_filtered['Rings'].isin(selected_rings)]
     if co2_type_selection != "All":
@@ -246,12 +290,11 @@ def main():
         (df_stats_filtered['TIMESTAMP'].dt.time <= end_time)
     ]
 
-    # EXCLUDE eCO2 < 350 HERE:
+    # EXCLUDE eCO2 < 350
     df_stats_filtered = df_stats_filtered[
         ~((df_stats_filtered["CO2"] == "eCO2") & (df_stats_filtered["CO2_Avg"] < 350))
     ]
 
-    # Apply rolling if "Rolling Average" selected for stats
     if stat_source == "Rolling Average":
         df_stats_filtered = df_stats_filtered.sort_values("TIMESTAMP").copy()
         df_stats_filtered["CO2_Avg_MA"] = (
@@ -262,12 +305,11 @@ def main():
     else:
         stat_column = "CO2_Avg"
 
-    # Compute stats
     if df_stats_filtered.empty or df_stats_filtered[stat_column].isna().all():
         st.warning("No data available in the specified Stats date/time range (or after excluding eCO2 < 350).")
     else:
         df_stats = df_stats_filtered.groupby("Rings")[stat_column].agg(["mean", "std"]).reset_index()
-        df_stats.rename(columns={"mean": "Mean CO₂", "std": "Std Dev"}, inplace=True)
+        df_stats.rename(columns={"mean": "Mean CO₂ (ppm)", "std": "Std Dev"}, inplace=True)
         st.write(
             f"**Stats computed for data between** "
             f"`{stats_date_range[0]} - {stats_date_range[-1]}` "
@@ -277,8 +319,8 @@ def main():
         st.write("**Note:** Values < 350 for eCO₂ have been excluded from stats.")
         st.dataframe(df_stats, use_container_width=True)
 
+
 def run_app():
-    # Single entry point:
     main()
 
 if __name__ == "__main__":
