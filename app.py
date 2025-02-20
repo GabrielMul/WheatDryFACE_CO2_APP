@@ -734,9 +734,9 @@ def main():
         (df_stats_filtered['TIMESTAMP'].dt.time <= end_time)
     ]
 
-    # Exclude eCO2 < 350
+    # Exclude eCO2 < 380
     df_stats_filtered = df_stats_filtered[
-        ~((df_stats_filtered["CO2"] == "eCO2") & (df_stats_filtered["CO2_Avg"] < 350))
+        ~((df_stats_filtered["CO2"] == "eCO2") & (df_stats_filtered["CO2_Avg"] < 380))
     ]
 
     if stat_source == "Rolling Average":
@@ -749,7 +749,7 @@ def main():
         stat_column = "CO2_Avg"
 
     if df_stats_filtered.empty or df_stats_filtered[stat_column].isna().all():
-        st.warning("No data available in the specified Stats date/time range (or after excluding eCO2 < 350).")
+        st.warning("No data available in the specified Stats date/time range (or after excluding eCO2 < 380).")
     else:
         df_stats = df_stats_filtered.groupby("Rings")[stat_column].agg(["mean", "std"]).reset_index()
         df_stats.rename(columns={"mean": "Mean CO₂ (ppm)", "std": "Std Dev"}, inplace=True)
@@ -759,7 +759,7 @@ def main():
             f"**and** `{start_time.strftime('%H:%M')} - {end_time.strftime('%H:%M')}`."
         )
         st.write(f"**Data source:** {'Rolling Average' if stat_source == 'Rolling Average' else 'Raw Data'}")
-        st.write("**Note:** Values < 350 for eCO₂ have been excluded from stats.")
+        st.write("**Note:** Values < 380 for eCO₂ have been excluded from stats.")
         st.dataframe(df_stats, use_container_width=True)
 
     # === NEW: Data Downloads (Password Protected) ===
