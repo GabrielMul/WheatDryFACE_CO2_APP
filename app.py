@@ -765,7 +765,7 @@ def main():
     # === NEW: Data Downloads (Password Protected) ===
     st.subheader("Data Downloads (Password Protected)")
     password = st.text_input("Enter password to enable data downloads:", type="password")
-    correct_pw = st.secrets["password"]
+    correct_pw = st.secrets["config"]["password"]
 
     if password == correct_pw:
         st.success("Correct password! You can now download the CSV files.")
